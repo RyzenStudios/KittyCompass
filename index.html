@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="stylesheet" href="styles.css">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Searcher</title>
+</head>
+
+<body>
+    <h1>Kitty Compass</h1>
+    <form id="searchForm" class="group">
+        <input type="text" id="location" class="input" placeholder="Enter a location" required>
+        <button type="submit">Search</button>
+    </form>
+
+
+    <div id="results"></div>
+
+    <script>
+        class APIConstants {
+            static clientId = "V7B0Ayv0D0da6XoqqvwafQLA3kN9aBX9TWF1exN9LiP5MTQmZo";
+            static clientSecret = "5piiqD6iAp4kiJU3poLD5EqJ1LrZzD3mKw1AyFq6";
+            static host = "api.petfinder.com";
+            static grantType = "client_credentials";
+
+            static bodyParams = {
+                client_id: APIConstants.clientId,
+                client_secret: APIConstants.clientSecret,
+                grant_type: APIConstants.grantType
+            };
+        }
+
+        class APIService {
+            static async createAccessTokenRequest() {
+                const url = `https://${APIConstants.host}/v2/oauth2/token`;
+                const headers = { 'Content-Type': 'application/json' };
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(APIConstants.bodyParams)
+                });
+                return await response.json();
+            }
+
+            static async getAccessToken() {
+                const tokenResponse = await this.createAccessTokenRequest();
+                return tokenResponse.access_token;
+            }
+
+            static async search(token, location) {
+                const url = `https://api.petfinder.com/v2/animals?type=cat&location=${encodeURIComponent(location)}&page=1`;
+                const headers = {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                };
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: headers
+                });
+                return await response.json();
+            }
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const location = document.getElementById('location').value;
+            try {
+                const token = await APIService.getAccessToken();
+                const animalsResponse = await APIService.search(token, location);
+                const animals = animalsResponse.animals;
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML = '';
+                animals.forEach(animal => {
+                    const animalDiv = document.createElement('div');
+                    animalDiv.innerHTML = `
+                        <h3>${animal.name}</h3>
+                        ${animal.description ? `<p>${animal.description}</p>` : ''}
+                        ${animal.photos && animal.photos.length > 0 ? `<img src="${animal.photos[0].medium}" alt="${animal.name}">` : ''}
+                        <p><a href="${animal.url}">Learn more</a></p>
+                    `;
+                    resultsDiv.appendChild(animalDiv);
+                });
+            } catch (error) {
+                console.error('Error:', error.message);
+            }
+        });
+
+        (async () => {
+            try {
+                const token = await APIService.getAccessToken();
+                const animalsResponse = await APIService.search(token, 'Toronto, ON');
+                const animals = animalsResponse.animals;
+                const resultsDiv = document.getElementById('results');
+
+                animals.forEach((animal, index) => {
+                    const animalDiv = document.createElement('div');
+                    animalDiv.classList.add('cat-card'); 
+                    animalDiv.id = `cat${index + 1}`; 
+
+                    animalDiv.innerHTML = `
+                <h3>${animal.name}</h3>
+                ${animal.photos && animal.photos.length > 0 ? `<img src="${animal.photos[0].medium}" alt="${animal.name}">` : '<img src="https://t3.ftcdn.net/jpg/00/51/15/44/360_F_51154451_aNzW3UwEHgNhkPf8Mzv8NSKfHE5sIVKi.jpg" alt="Placeholder Image">'}
+                
+                <p><a href="${animal.url}">Learn more</a></p>
+                ${animal.description ? `<p>${animal.description}</p>` : ''}
+            `;
+
+                    resultsDiv.appendChild(animalDiv);
+                });
+            } catch (error) {
+                console.error('Error:', error.message);
+            }
+        })();
+
+    </script>
+</body>
+
+</html>
